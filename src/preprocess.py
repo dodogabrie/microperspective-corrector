@@ -7,11 +7,15 @@ def preprocess_image(image, show_step_by_step=False):
     if show_step_by_step:
         show_image(gray, "Grayscale")
 
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    # Determine adaptive kernel size based on image size
+    min_dim = min(gray.shape[:2])
+    # Kernel size is 1/50th of min dimension, rounded to nearest odd integer >= 3
+    k = max(3, int((min_dim / 50) // 2 * 2 + 1))
+    blurred = cv2.GaussianBlur(gray, (k, k), 0)
     if show_step_by_step:
-        show_image(blurred, "Blurred")
+        show_image(blurred, f"Blurred (kernel={k}x{k})")
 
-    _, thresh = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY_INV)
+    _, thresh = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY)
     if show_step_by_step:
         show_image(thresh, "Thresholded")
 
