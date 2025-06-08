@@ -89,7 +89,7 @@ def fallback_image(original, final_image):
     final_area = final_image.shape[0] * final_image.shape[1]
 
     # Check if the final image is less than or equal to half the size of the original
-    if final_area <= 0.5 * original_area:
+    if final_area <= 0.1 * original_area:
         return original
     else:
         return final_image

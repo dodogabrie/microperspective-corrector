@@ -22,7 +22,7 @@ def find_images_recursive(input_dir):
                 image_files.append(os.path.join(root, f))
     return image_files
 
-def main(input_dir, output_dir, border_pixels=1000, verbose=True):
+def main(input_dir, output_dir, border_pixels=1000, verbose=True, ):
     """
     Process images from the input directory (recursively) and save the processed images to the output directory,
     preserving the folder structure.
@@ -65,8 +65,8 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True):
             output_path,
             output_path_thumb=None,
             border_pixels=border_pixels,
-            show_step_by_step=True,
-            show_before_after=True
+            show_step_by_step=False,
+            show_before_after=False,
         )
 
         # Aggiorna lo spinner
@@ -97,9 +97,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process images to remove black borders and warp them (recursive, preserves folder structure).")
     parser.add_argument("input_dir", type=str, help="Directory containing input images.")
     parser.add_argument("output_dir", type=str, help="Directory to save processed images.")
-    parser.add_argument("-b", "--border", type=int, default=1000, help="Number of pixels for the external border.")
+    parser.add_argument("-b", "--border", type=int, default=100, help="Number of pixels for the external border.")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output.")
 
     args = parser.parse_args()
 
-    main(args.input_dir, args.output_dir, border_pixels=args.border, verbose=args.verbose)
+    main(args.input_dir, args.output_dir, border_pixels=args.border, verbose=args.verbose,)

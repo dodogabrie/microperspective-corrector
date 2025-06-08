@@ -8,6 +8,7 @@ from src.preprocess import preprocess_image
 from src.detect import find_page_contour
 from src.transform import warp_image
 from src.crop import remove_lateral_blacks
+from src.quality_evaluation import evaluate_quality
 
 # Input and output directories
 DATA_DIR = 'dataset/original'
@@ -20,7 +21,7 @@ os.makedirs(OUTPUT_THUMB_DIR, exist_ok=True)
 
 
 def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=0, show_step_by_step=False,
-                 show_before_after=False):
+                 show_before_after=False,):
     """
     Full pipeline to process a TIFF image.
 
@@ -51,8 +52,8 @@ def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=
         show_image(image, "Original Image")
     thresh = preprocess_image(image, show_step_by_step)
     page_contour = find_page_contour(thresh, show_step_by_step)
-    warped = warp_image(image, page_contour, border_pixels, show_step_by_step)
-    # cropped = remove_lateral_blacks(warped, show_step_by_step)
+    warped, no_rotated_crop = warp_image(image, page_contour, border_pixels, show_step_by_step)
+    evaluate_quality(no_rotated_crop, warped)
     if show_before_after:
         show_image(warped, "Cropped Image")
     thumbnail = save_outputs(image, fallback_image(image, warped), output_path_tiff, output_path_thumb)
