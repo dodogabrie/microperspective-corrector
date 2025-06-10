@@ -2,15 +2,6 @@ import argparse
 import os
 import sys
 
-if sys.platform == "win32":
-    # Trova la cartella python-embed (che sarà in app.asar.unpacked in produzione)
-    exe_dir = os.path.dirname(sys.executable)
-    vips_dir = os.path.join(exe_dir, "vips")
-    if hasattr(os, "add_dll_directory"):
-        os.add_dll_directory(vips_dir)
-    else:
-        os.environ["PATH"] = vips_dir + ";" + os.environ["PATH"]
-
 from edge_detection import process_tiff
 from src.spinner import Spinner
 from report import generate_html_report
