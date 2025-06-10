@@ -56,7 +56,8 @@ def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=
     evaluate_quality(no_rotated_crop, warped)
     if show_before_after:
         show_image(warped, "Cropped Image")
-    thumbnail = save_outputs(image, fallback_image(image, warped), output_path_tiff, output_path_thumb)
+    # Call save_outputs with original and warped only; fallback logic is now inside save_outputs
+    thumbnail = save_outputs(image, warped, output_path_tiff, output_path_thumb)
     return thumbnail
 
 
