@@ -52,6 +52,8 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
         if image_input_format not in ['tif', 'tiff', 'jpg', 'jpeg']:
             raise ValueError("Invalid image input format. Use 'tif', 'tiff', 'jpg', or 'jpeg'.")
         format = [f'.{image_input_format}']
+    else:
+        format = ['.tif', '.tiff', '.jpg', '.jpeg']
 
     image_files = find_images_recursive(input_dir, format=format)
     total_files = len(image_files)
