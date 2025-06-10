@@ -1,5 +1,6 @@
 import cv2
 import os
+import numpy as np
 
 def show_image(image, title="Image", max_width=1280, max_height=720, file_path=None):
     """
@@ -52,22 +53,29 @@ def save_outputs(original, warped, output_path_tiff, output_path_thumb=None):
         if len(warped.shape) == 2:
             warped = cv2.cvtColor(warped, cv2.COLOR_GRAY2BGR)
 
-    # Concatenate original and warped images
-    concatenated_image = cv2.hconcat([original, warped])
+    # --- SEPARAZIONE VISIVA ---
+    # Crea uno sfondo grigio tra le due immagini
+    sep_width = 100  # larghezza separatore
+    height = original.shape[0]
+    separator = 200 * np.ones((height, sep_width, 3), dtype=np.uint8)  # grigio chiaro
+
+    # Concatenate original, separator, warped
+    concatenated_image = cv2.hconcat([original, separator, warped])
 
     # Resize the concatenated image to create a thumbnail
     resize_val = 500
     height, width = concatenated_image.shape[:2]
     thumbnail = cv2.resize(concatenated_image, (resize_val, int(resize_val * height / width)))
 
+    # Se non viene passato output_path_thumb, salva in una cartella tmp accanto all'output tiff
     if not output_path_thumb:
-        output_path_thumb = 'tmp'
+        output_dir = os.path.dirname(output_path_tiff)
+        output_path_thumb = os.path.join(output_dir, 'tmp')
         os.makedirs(output_path_thumb, exist_ok=True)
 
     # Extract the base filename and replace the extension
     base_filename = os.path.basename(output_path_tiff)
     thumbnail_filename = base_filename.replace('.tif', '.jpg').replace('.tiff', '.jpg')
-
     cv2.imwrite(os.path.join(output_path_thumb, thumbnail_filename), thumbnail)
 
     return thumbnail
