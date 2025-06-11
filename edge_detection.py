@@ -3,7 +3,7 @@ import numpy as np
 import os
 import random
 import matplotlib.pyplot as plt
-from src.utils import show_image, load_image, fallback_image, save_outputs
+from src.utils import show_image, load_image, save_outputs
 from src.preprocess import preprocess_image
 from src.detect import find_page_contour
 from src.transform import warp_image
@@ -53,7 +53,7 @@ def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=
     thresh = preprocess_image(image, show_step_by_step)
     page_contour = find_page_contour(thresh, show_step_by_step)
     warped, no_rotated_crop = warp_image(image, page_contour, border_pixels, show_step_by_step)
-    evaluate_quality(no_rotated_crop, warped)
+    # evaluate_quality(no_rotated_crop, warped)
     if show_before_after:
         show_image(warped, "Cropped Image")
     # Call save_outputs with original and warped only; fallback logic is now inside save_outputs

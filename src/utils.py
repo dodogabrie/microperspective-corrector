@@ -1,6 +1,16 @@
 import cv2
 import os
 import numpy as np
+import json
+from .quality_evaluation import evaluate_quality
+
+
+DEFAULT_ERROR = {
+    'sharpness': 0.1,
+    'entropy': 0.1,
+    'edge_density': 0.1,
+    'residual_skew_angle': 0.1,
+}
 
 def show_image(image, title="Image", max_width=1280, max_height=720, file_path=None):
     """
@@ -35,47 +45,34 @@ def load_image(image_path):
     return cv2.imread(image_path, cv2.IMREAD_COLOR)
 
 
-def save_outputs(original, warped, output_path_tiff, output_path_thumb=None):
-    """Save the cropped TIFF image and a reduced JPG thumbnail."""
-    # Save the TIFF
-    # Fallback logic: check if warped is too small, and if so, use original
-    final_image, is_fallback = fallback_image(original, warped, return_status=True)
-    cv2.imwrite(output_path_tiff, final_image)
+def save_outputs(original, processed, output_path_tiff, output_path_thumb=None):
+    """
+    Save the processed TIFF image, a reduced JPG thumbnail, and the quality evaluation JSON.
+    Always saves both original and processed images in the thumbnail, and always saves the quality file.
+    """
+    # Save the processed TIFF
+    cv2.imwrite(output_path_tiff, processed)
 
     # Ensure both images have the same height
-    if original.shape[0] != final_image.shape[0]:
-        height = min(original.shape[0], final_image.shape[0])
+    if original.shape[0] != processed.shape[0]:
+        height = min(original.shape[0], processed.shape[0])
         original = cv2.resize(original, (int(original.shape[1] * height / original.shape[0]), height))
-        final_image = cv2.resize(final_image, (int(final_image.shape[1] * height / final_image.shape[0]), height))
+        processed = cv2.resize(processed, (int(processed.shape[1] * height / processed.shape[0]), height))
 
     # Ensure both images have the same type
-    if original.shape[2] != final_image.shape[2]:
+    if original.shape[2] != processed.shape[2]:
         if len(original.shape) == 2:
             original = cv2.cvtColor(original, cv2.COLOR_GRAY2BGR)
-        if len(final_image.shape) == 2:
-            final_image = cv2.cvtColor(final_image, cv2.COLOR_GRAY2BGR)
+        if len(processed.shape) == 2:
+            processed = cv2.cvtColor(processed, cv2.COLOR_GRAY2BGR)
 
     # --- SEPARAZIONE VISIVA ---
-    # Crea uno sfondo grigio tra le due immagini
     sep_width = 100  # larghezza separatore
     height = original.shape[0]
-    separator = 200 * np.ones((height, sep_width, 3), dtype=np.uint8)
+    separator = 0 * np.ones((height, sep_width, 3), dtype=np.uint8)  # grigio chiaro
 
-    # Concatenate original, separator, final_image (possibly with red background)
-    if is_fallback:
-        # Add a red background behind the fallback image (right side)
-        red_bg = np.zeros_like(final_image)
-        red_bg[:, :] = (0, 0, 255)  # BGR for red
-        margin = 10
-        h, w = final_image.shape[:2]
-        overlay = red_bg.copy()
-        y1, y2 = margin, h - margin
-        x1, x2 = margin, w - margin
-        resized_orig = cv2.resize(original, (x2 - x1, y2 - y1))
-        overlay[y1:y2, x1:x2] = resized_orig
-        concatenated_image = cv2.hconcat([original, separator, overlay])
-    else:
-        concatenated_image = cv2.hconcat([original, separator, final_image])
+    # Concatenate original, separator, processed
+    concatenated_image = cv2.hconcat([original, separator, processed])
 
     resize_val = 500
     height, width = concatenated_image.shape[:2]
@@ -92,25 +89,26 @@ def save_outputs(original, warped, output_path_tiff, output_path_thumb=None):
     thumbnail_filename = base_filename.replace('.tif', '.jpg').replace('.tiff', '.jpg')
     cv2.imwrite(os.path.join(output_path_thumb, thumbnail_filename), thumbnail)
 
+    # --- Calcola e salva la valutazione della qualità ---
+    quality = evaluate_quality(original, processed)
+    quality_dir = os.path.join(os.path.dirname(output_path_thumb), 'quality')
+    quality_dir = os.path.abspath(quality_dir)
+    os.makedirs(quality_dir, exist_ok=True)
+    quality_filename = os.path.splitext(thumbnail_filename)[0] + '.json'
+    quality_path = os.path.join(quality_dir, quality_filename)
+    def to_python_type(obj):
+        if isinstance(obj, dict):
+            return {k: to_python_type(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [to_python_type(x) for x in obj]
+        elif isinstance(obj, (np.integer, np.int32, np.int64)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float32, np.float64)):
+            return float(obj)
+        else:
+            return obj
+    quality_py = to_python_type(quality)
+    with open(quality_path, 'w', encoding='utf-8') as f:
+        json.dump(quality_py, f, indent=2, ensure_ascii=False)
+
     return thumbnail
-
-def fallback_image(original, final_image, return_status=False):
-    """
-    Fallback to the original image if the final image is too small.
-
-    Args:
-        original (numpy.ndarray): The original image.
-        final_image (numpy.ndarray): The processed final image.
-        return_status (bool): If True, return (image, is_fallback).
-
-    Returns:
-        numpy.ndarray or (numpy.ndarray, bool): The image to use, and optionally the fallback status.
-    """
-    # Calculate the area of the original and final images
-    original_area = original.shape[0] * original.shape[1]
-    final_area = final_image.shape[0] * final_image.shape[1]
-    is_fallback = final_area <= 0.1 * original_area
-    if return_status:
-        return (original if is_fallback else final_image), is_fallback
-    else:
-        return original if is_fallback else final_image
