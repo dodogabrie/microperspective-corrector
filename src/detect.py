@@ -42,4 +42,5 @@ def find_page_contour(thresh, show_step_by_step=False):
                 show_image(temp_image, "Detected Contour")
             return approx
 
-    raise ValueError("No page-like contour found")
+    # If no suitable contour is found, return None
+    return None

@@ -4,7 +4,7 @@ import cv2
 from .utils import show_image
 # from .crop import remove_lateral_blacks
 
-def warp_image(image, page_contour, border_pixels=0, show_step_by_step=False, show_overlay=False, opencv_version=False):
+def warp_image(image, page_contour, border_pixels=0, show_step_by_step=False, show_overlay=True, opencv_version=True):
     # Get the minimum area rectangle
     rect = cv2.minAreaRect(page_contour)
     center_box = rect[0]

@@ -25,7 +25,7 @@ def find_images_recursive(input_dir, format=['.tif', '.tiff', '.jpg', '.jpeg']):
     return image_files
 
 def main(input_dir, output_dir, border_pixels=1000, verbose=True, 
-         output_path_thumb=None, image_input_format=None):
+         output_path_thumb=None, image_input_format=None, show_step_by_step=False):
     """
     Process images from the input directory (recursively) and save the processed images to the output directory,
     preserving the folder structure.
@@ -45,6 +45,7 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
         - La struttura delle sottocartelle viene replicata nella cartella di output.
         - Vengono processati solo file .tif, .tiff, .jpg, .jpeg.
     """
+    print('Starting image processing...')
     # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
@@ -83,7 +84,7 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
             output_path,
             output_path_thumb=output_path_thumb,
             border_pixels=border_pixels,
-            show_step_by_step=False,
+            show_step_by_step=show_step_by_step,
             show_before_after=False,
         )
 
@@ -116,6 +117,7 @@ if __name__ == "__main__":
     parser.add_argument("input_dir", type=str, help="Directory containing input images.")
     parser.add_argument("output_dir", type=str, help="Directory to save processed images.")
     parser.add_argument("-b", "--border", type=int, default=100, help="Number of pixels for the external border.")
+    parser.add_argument("-s", "--show_step_by_step", default=False, action="store_true", help="Show step-by-step processing (for debugging).")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output.")
     parser.add_argument("-t", "--output_thumb", type=str, default=None, help="Path to save reduced thumbnails (optional).")
     parser.add_argument("-f", "--image-input-format", type=str, default="tif", help="Input image format (tif/jpg).")
@@ -124,4 +126,5 @@ if __name__ == "__main__":
 
     main(args.input_dir, args.output_dir, border_pixels=args.border, 
          verbose=args.verbose, output_path_thumb=args.output_thumb, 
-         image_input_format=args.image_input_format)
+         image_input_format=args.image_input_format, 
+         show_step_by_step=args.show_step_by_step)

@@ -42,14 +42,16 @@ def show_image(image, title="Image", max_width=1280, max_height=720, file_path=N
 
 def load_image(image_path):
     """Load the input image from the given path."""
-    return cv2.imread(image_path, cv2.IMREAD_COLOR)
+    return cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
 
 
-def save_outputs(original, processed, output_path_tiff, output_path_thumb=None):
+def save_outputs(original, processed, output_path_tiff, output_path_thumb=None, copied=False):
     """
     Save the processed TIFF image, a reduced JPG thumbnail, and the quality evaluation JSON.
     Always saves both original and processed images in the thumbnail, and always saves the quality file.
     """
+    if copied:
+        processed = np.zeros_like(original)  # If copied, processed is an empty image
     # Save the processed TIFF
     cv2.imwrite(output_path_tiff, processed)
 
