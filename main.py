@@ -70,6 +70,7 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
     if verbose:
         spinner = Spinner(total_files)
         spinner.start()
+    
 
     for i, input_path in enumerate(image_files):
         # Calcola il percorso relativo rispetto alla input_dir
@@ -123,8 +124,14 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--image-input-format", type=str, default="tif", help="Input image format (tif/jpg).")
 
     args = parser.parse_args()
+    
+    # thumb directory
+    output_dir = args.output_dir
+    output_path_thumb = args.output_thumb
+    if output_path_thumb is None:
+        output_path_thumb = os.path.join(output_dir, 'thumb') # Default to output_dir + thumb if not specified
 
     main(args.input_dir, args.output_dir, border_pixels=args.border, 
-         verbose=args.verbose, output_path_thumb=args.output_thumb, 
+         verbose=args.verbose, output_path_thumb=output_path_thumb,
          image_input_format=args.image_input_format, 
          show_step_by_step=args.show_step_by_step)

@@ -2,69 +2,98 @@ import cv2
 import numpy as np
 from .utils import show_image
 
-def estimate_threshold(gray):
-    """
-    Stima una soglia binaria dinamica basata sulla luminosità media del bordo e del centro,
-    utilizzando operazioni in float32 per ottimizzare velocità e uso di memoria.
 
-    Assunzioni:
-    - L'immagine in scala di grigi (gray) è di tipo uint8, con valori 0-255.
-    - Il bordo (5% della dimensione minima) rappresenta lo sfondo.
-    - Il centro (10% della dimensione minima) contiene l'oggetto principale.
-    
-    Parametri:
-    - gray (np.ndarray): immagine in scala di grigi (dtype=uint8).
-
-    Ritorna:
-    - int: valore della soglia stimata (compreso tra 0 e 255).
+def rgb_to_gray_from_tuple(bgr):
     """
-    h, w = gray.shape
+    Converte una tripla (B, G, R) in valore scala di grigi usando la formula BT.601.
+
+    Args:
+        bgr (tuple[float, float, float]): Valori medi BGR.
+
+    Returns:
+        float: Valore di grigio corrispondente.
+    """
+    b, g, r = bgr
+    return 0.114 * b + 0.587 * g + 0.299 * r
+
+
+def estimate_threshold_and_border_rgb(image, gray_blurred):
+    """
+    Calcola una soglia binaria dinamica e il valore medio RGB dei bordi dell'immagine.
+
+    Args:
+        image (np.ndarray): Immagine BGR originale (uint8).
+        gray_blurred (np.ndarray): Immagine sfocata in scala di grigi (uint8).
+
+    Returns:
+        int: Valore di soglia stimato per la binarizzazione (0–255).
+        tuple[float, float, float]: Valore medio (B, G, R) dei bordi in float32.
+    """
+    h, w = gray_blurred.shape
     min_dim = min(h, w)
-    border_size = int(min_dim * 0.05)  # 5% della dimensione minima
-    center_size = int(min_dim * 0.1)  # 10% della dimensione minima
+    border = int(min_dim * 0.05)       # 5% per il bordo
+    center = int(min_dim * 0.1) // 2   # 10% per il centro
 
-    # Calcola la media dei pixel dei quattro bordi usando float32 per ottimizzazione
-    mean_top    = np.mean(gray[:border_size, :], dtype=np.float32)
-    mean_bottom = np.mean(gray[-border_size:, :], dtype=np.float32)
-    mean_left   = np.mean(gray[:, :border_size], dtype=np.float32)
-    mean_right  = np.mean(gray[:, -border_size:], dtype=np.float32)
-    border_mean = (mean_top + mean_bottom + mean_left + mean_right) / 4.0
+    # Estrai bordi e concatena
+    top = image[:border]
+    bottom = image[-border:]
+    left = image[:, :border]
+    right = image[:, -border:]
 
-    # Calcola la media della patch centrale
+    # Calcola media RGB dei bordi
+    border_pixels = np.concatenate([
+        top.reshape(-1, 3),
+        bottom.reshape(-1, 3),
+        left.reshape(-1, 3),
+        right.reshape(-1, 3)
+    ], axis=0).astype(np.float32)
+    border_rgb = tuple(border_pixels.mean(axis=0))  # B, G, R
+
+    # Converti media RGB in grigio
+    border_gray = rgb_to_gray_from_tuple(border_rgb)
+
+    # Calcola media nel centro dell'immagine grigia
     cx, cy = w // 2, h // 2
-    half_center = center_size // 2
-    center_patch = gray[cy - half_center:cy + half_center, cx - half_center:cx + half_center]
-    center_mean = np.mean(center_patch, dtype=np.float32)
+    center_patch = gray_blurred[cy - center:cy + center, cx - center:cx + center]
+    center_mean = center_patch.mean(dtype=np.float32)
 
-    # Calcola la soglia come interpolazione lineare tra border_mean e center_mean
-    alpha = 0.6  # Fattore di bilanciamento: più vicino a 1 dà maggiore importanza al centro
-    threshold_val = border_mean + (center_mean - border_mean) * alpha
+    # Interpolazione pesata
+    alpha = 0.6
+    threshold_val = int(np.clip(border_gray + (center_mean - border_gray) * alpha, 0, 255))
 
-    # Limita il valore tra 0 e 255 e restituisce un int
-    return int(np.clip(threshold_val, 0, 255))
+    return threshold_val, tuple(int(round(c)) for c in border_rgb)
+
 
 def preprocess_image(image, show_step_by_step=False):
     """
-    Converte l'immagine in scala di grigi, la sfoca e applica una soglia binaria dinamica.
-    Mostra i passaggi intermedi se show_step_by_step è True.
+    Converte l'immagine in scala di grigi, la sfoca, calcola soglia dinamica
+    basata sui valori medi dei bordi e binarizza. Restituisce anche il valore RGB medio dei bordi.
+
+    Args:
+        image (np.ndarray): Immagine BGR originale (uint8).
+        show_step_by_step (bool): Se True, mostra i passaggi.
+
+    Returns:
+        np.ndarray: Immagine binarizzata (uint8, 0 o 255).
+        tuple[float, float, float]: Media (B, G, R) dei bordi in float32.
     """
-    # Converte l'immagine a scala di grigi
+    # Converte in scala di grigi
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     if show_step_by_step:
         show_image(gray, "Grayscale")
 
-    # Calcola una dimensione del kernel basata sulla dimensione minima dell'immagine
+    # Applica blur adattivo in base alla dimensione minima
     min_dim = min(gray.shape[:2])
-    k = max(3, int((min_dim / 50) // 2 * 2 + 1))  # Kernel dispari, minimo 3x3
-    k = min(k, 51)  # Limita la dimensione massima del kernel a 51
+    k = max(3, int((min_dim / 50) // 2 * 2 + 1))  # Kernel dispari, minimo 3
+    k = min(k, 51)  # Massimo 51
     blurred = cv2.GaussianBlur(gray, (k, k), 0)
     if show_step_by_step:
         show_image(blurred, f"Blurred (kernel={k}x{k})")
 
-    # Calcola la soglia dinamica e applica la threshold
-    threshold_val = estimate_threshold(blurred)
+    # Calcola soglia e valore RGB del bordo
+    threshold_val, border_rgb = estimate_threshold_and_border_rgb(image, blurred)
     _, thresh = cv2.threshold(blurred, threshold_val, 255, cv2.THRESH_BINARY)
     if show_step_by_step:
-        show_image(thresh, "Thresholded")
+        show_image(thresh, f"Thresholded (th={threshold_val})")
 
-    return thresh
+    return thresh, border_rgb

@@ -48,7 +48,7 @@ def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=
     image = load_image(image_path)
     if show_before_after:
         show_image(image, "Original Image")
-    thresh = preprocess_image(image, show_step_by_step)
+    thresh, border_value = preprocess_image(image, show_step_by_step)
     page_contour = find_page_contour(thresh, show_step_by_step)
     copied = False
     if page_contour is None:
@@ -56,7 +56,7 @@ def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=
         warped = np.copy(image)
         print("No page-like contour found, returning empty image.")
     else:
-        warped, _ = warp_image(image, page_contour, border_pixels, show_step_by_step)
+        warped, _ = warp_image(image, page_contour, border_pixels, show_step_by_step, border_value=border_value)
     if show_before_after:
         show_image(warped, "Cropped Image")
     # Call save_outputs with original and warped only; fallback logic is now inside save_outputs
