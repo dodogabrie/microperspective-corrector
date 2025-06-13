@@ -1,10 +1,23 @@
 import argparse
 import os
 import sys
+import json
+import time
+from datetime import datetime
 
 from edge_detection import process_tiff
 from src.spinner import Spinner
 from report import generate_html_report
+
+def get_file_size_gb(file_path):
+    """Get file size in GB."""
+    return os.path.getsize(file_path) / (1024**3)
+
+def write_info_json(output_dir, info_data):
+    """Write info.json file to output directory."""
+    info_path = os.path.join(output_dir, 'info.json')
+    with open(info_path, 'w', encoding='utf-8') as f:
+        json.dump(info_data, f, indent=2, ensure_ascii=False)
 
 def find_images_recursive(input_dir, format=['.tif', '.tiff', '.jpg', '.jpeg']):
     """
@@ -46,6 +59,9 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
         - Vengono processati solo file .tif, .tiff, .jpg, .jpeg.
     """
     print('Starting image processing...')
+    start_time = time.time()
+    start_datetime = datetime.now().isoformat()
+    
     # Ensure the output directory exists
     os.makedirs(output_dir, exist_ok=True)
 
@@ -60,6 +76,30 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
 
     image_files = find_images_recursive(input_dir, format=format)
     total_files = len(image_files)
+    
+    # Calculate total size
+    total_size_gb = sum(get_file_size_gb(f) for f in image_files)
+    
+    # Determine primary format
+    formats = {}
+    for f in image_files:
+        ext = os.path.splitext(f)[1].lower()
+        formats[ext] = formats.get(ext, 0) + 1
+    primary_format = max(formats.keys(), key=formats.get) if formats else 'unknown'
+    
+    # Create initial info.json
+    info_data = {
+        "total_images": total_files,
+        "processed": 0,
+        "primary_format": primary_format.upper().replace('.', ''),
+        "all_formats": formats,
+        "total_size_gb": round(total_size_gb, 3),
+        "start_time": start_datetime,
+        "duration_seconds": None,
+        "status": "processing"
+    }
+    
+    write_info_json(output_dir, info_data)
 
     # Se non specificato, salva le thumb in output/thumbs
     if output_path_thumb is None:
@@ -92,12 +132,26 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
         # Aggiorna lo spinner
         if verbose:
             spinner.update_progress(i, rel_path)
+            
+        # Update progress in info.json
+        info_data["processed"] = i + 1
+        write_info_json(output_dir, info_data)
 
     # Ferma lo spinner
     if verbose:
         spinner.stop()
 
-    generate_html_report('report.html')
+    # Update final info.json with completion data
+    end_time = time.time()
+    duration_seconds = round(end_time - start_time, 2)
+    
+    info_data["duration_seconds"] = duration_seconds
+    info_data["status"] = "completed"
+    info_data["end_time"] = datetime.now().isoformat()
+    
+    write_info_json(output_dir, info_data)
+
+    # generate_html_report('report.html')
     print("\nProcessing complete!")
 
 if __name__ == "__main__":

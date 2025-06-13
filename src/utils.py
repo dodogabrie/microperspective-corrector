@@ -2,6 +2,7 @@ import cv2
 import os
 import numpy as np
 import json
+import time
 from .quality_evaluation import evaluate_quality
 
 
@@ -86,9 +87,11 @@ def save_outputs(original, processed, output_path_tiff, output_path_thumb=None, 
         output_path_thumb = os.path.join(output_dir, 'tmp')
         os.makedirs(output_path_thumb, exist_ok=True)
 
-    # Extract the base filename and replace the extension
+    # Extract the base filename and add timestamp for proper sorting
     base_filename = os.path.basename(output_path_tiff)
-    thumbnail_filename = base_filename.replace('.tif', '.jpg').replace('.tiff', '.jpg')
+    name_without_ext = os.path.splitext(base_filename)[0]
+    timestamp = str(int(time.time() * 1000))  # milliseconds timestamp
+    thumbnail_filename = f"{timestamp}_{name_without_ext}.jpg"
     cv2.imwrite(os.path.join(output_path_thumb, thumbnail_filename), thumbnail)
 
     # --- Calcola e salva la valutazione della qualità ---
