@@ -46,7 +46,7 @@ def load_image(image_path):
     return cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
 
 
-def save_outputs(original, processed, output_path_tiff, output_path_thumb=None, copied=False):
+def save_outputs(original, processed, output_path_tiff, output_path_thumb=None, copied=False, output_no_cropped=None):
     """
     Save the processed TIFF image, a reduced JPG thumbnail, and the quality evaluation JSON.
     Always saves both original and processed images in the thumbnail, and always saves the quality file.
@@ -95,7 +95,14 @@ def save_outputs(original, processed, output_path_tiff, output_path_thumb=None, 
     cv2.imwrite(os.path.join(output_path_thumb, thumbnail_filename), thumbnail)
 
     # --- Calcola e salva la valutazione della qualità ---
-    quality = evaluate_quality(original, processed)
+    if output_no_cropped is not None:
+        image_to_compare = output_no_cropped
+    else:
+    # If no uncropped original is provided, use the processed image
+        image_to_compare = original 
+
+    quality = evaluate_quality(image_to_compare, processed)
+
     quality_dir = os.path.join(os.path.dirname(output_path_thumb), 'quality')
     quality_dir = os.path.abspath(quality_dir)
     os.makedirs(quality_dir, exist_ok=True)

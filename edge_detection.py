@@ -55,12 +55,14 @@ def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=
         copied = True
         warped = np.copy(image)
         print("No page-like contour found, returning empty image.")
+        thumbnail = save_outputs(image, warped, output_path_tiff, output_path_thumb, copied=copied)
     else:
-        warped, _ = warp_image(image, page_contour, border_pixels, show_step_by_step, border_value=border_value)
+        warped, no_cropped = warp_image(image, page_contour, border_pixels, show_step_by_step, border_value=border_value)
+        print("Found countour, saving cropped/rotated image.")
+        thumbnail = save_outputs(image, warped, output_path_tiff, output_path_thumb, copied=copied, output_no_cropped=no_cropped)
     if show_before_after:
         show_image(warped, "Cropped Image")
     # Call save_outputs with original and warped only; fallback logic is now inside save_outputs
-    thumbnail = save_outputs(image, warped, output_path_tiff, output_path_thumb, copied=copied)
     return thumbnail
 
 
