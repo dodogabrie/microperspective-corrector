@@ -5,6 +5,13 @@ import json
 import time
 from datetime import datetime
 
+# Aggiungo al path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.join(current_dir, 'src')
+
+sys.path.insert(0, current_dir)  # Per importare edge_detection, report, etc.
+sys.path.insert(0, src_dir)      # Per i moduli src.* usati in edge_detection
+
 from edge_detection import process_tiff
 from src.spinner import Spinner
 from report import generate_html_report
