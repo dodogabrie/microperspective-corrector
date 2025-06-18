@@ -78,6 +78,14 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
         if image_input_format not in ['tif', 'tiff', 'jpg', 'jpeg']:
             raise ValueError("Invalid image input format. Use 'tif', 'tiff', 'jpg', or 'jpeg'.")
         format = [f'.{image_input_format}']
+        if format == ['.tiff']:
+            format.append('.tif')
+        elif format == ['.tif']:
+            format.append('.tiff')
+        elif format == ['.jpg']:
+            format.append('.jpeg')
+        elif format == ['.jpeg']:
+            format.append('.jpg')
     else:
         format = ['.tif', '.tiff', '.jpg', '.jpeg']
 
