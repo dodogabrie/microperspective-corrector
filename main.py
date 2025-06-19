@@ -45,7 +45,7 @@ def find_images_recursive(input_dir, format=['.tif', '.tiff', '.jpg', '.jpeg']):
     return image_files
 
 def main(input_dir, output_dir, border_pixels=1000, verbose=True, 
-         output_path_thumb=None, image_input_format=None, show_step_by_step=False):
+         output_path_thumb=None, image_input_format=None, show_step_by_step=False, use_compression=True):
     """
     Process images from the input directory (recursively) and save the processed images to the output directory,
     preserving the folder structure.
@@ -57,6 +57,7 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
         verbose (bool): Se True, mostra avanzamento.
         output_path_thumb (str): Percorso per salvare le miniature ridotte (opzionale).
         image_input_format (str): Formato delle immagini di input (tif/jpg).
+        use_compression (bool): Se True, usa compressione LZW per file TIFF (default: True).
 
     Returns:
         None
@@ -106,9 +107,12 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
     info_data = {
         "total_images": total_files,
         "processed": 0,
+        "successful_metadata_preservation": 0,
+        "failed_metadata_preservation": 0,
         "primary_format": primary_format.upper().replace('.', ''),
         "all_formats": formats,
         "total_size_gb": round(total_size_gb, 3),
+        "compression_enabled": use_compression,
         "start_time": start_datetime,
         "duration_seconds": None,
         "status": "processing"
@@ -135,14 +139,33 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
         os.makedirs(output_folder, exist_ok=True)
 
         # Processa il file
-        process_tiff(
+        thumbnail = process_tiff(
             input_path,
             output_path,
             output_path_thumb=output_path_thumb,
             border_pixels=border_pixels,
             show_step_by_step=show_step_by_step,
             show_before_after=False,
+            use_compression=use_compression
         )
+
+        # Check if metadata was preserved (read from quality JSON if available)
+        quality_dir = os.path.join(output_path_thumb, 'quality')
+        if os.path.exists(quality_dir):
+            quality_files = [f for f in os.listdir(quality_dir) if f.endswith('.json')]
+            if quality_files:
+                latest_quality = sorted(quality_files)[-1]
+                quality_path = os.path.join(quality_dir, latest_quality)
+                try:
+                    with open(quality_path, 'r') as f:
+                        quality_data = json.load(f)
+                        if 'metadata_comparison' in quality_data:
+                            if quality_data['metadata_comparison'].get('metadata_preserved', False):
+                                info_data["successful_metadata_preservation"] += 1
+                            else:
+                                info_data["failed_metadata_preservation"] += 1
+                except:
+                    pass
 
         # Aggiorna lo spinner
         if verbose:
@@ -163,6 +186,9 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
     info_data["duration_seconds"] = duration_seconds
     info_data["status"] = "completed"
     info_data["end_time"] = datetime.now().isoformat()
+    info_data["metadata_preservation_rate"] = round(
+        info_data["successful_metadata_preservation"] / max(1, info_data["processed"]) * 100, 2
+    ) if info_data["processed"] > 0 else 0
     
     write_info_json(output_dir, info_data)
 
@@ -191,6 +217,7 @@ if __name__ == "__main__":
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose output.")
     parser.add_argument("-t", "--output_thumb", type=str, default=None, help="Path to save reduced thumbnails (optional).")
     parser.add_argument("-f", "--image-input-format", type=str, default="tif", help="Input image format (tif/jpg).")
+    parser.add_argument("--no-compression", action="store_true", help="Disable LZW compression for TIFF files (default: compression enabled).")
 
     args = parser.parse_args()
     
@@ -203,4 +230,5 @@ if __name__ == "__main__":
     main(args.input_dir, args.output_dir, border_pixels=args.border, 
          verbose=args.verbose, output_path_thumb=output_path_thumb,
          image_input_format=args.image_input_format, 
-         show_step_by_step=args.show_step_by_step)
+         show_step_by_step=args.show_step_by_step,
+         use_compression=not args.no_compression)

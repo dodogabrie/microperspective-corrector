@@ -46,7 +46,7 @@ def load_image(image_path):
     return cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
 
 
-def save_image_with_metadata(image_array, output_path, original_path):
+def save_image_with_metadata(image_array, output_path, original_path, use_compression=True):
     """
     Salva un'immagine preservando i metadati EXIF senza perdita di qualità.
     
@@ -54,77 +54,203 @@ def save_image_with_metadata(image_array, output_path, original_path):
         image_array (np.ndarray): Array dell'immagine da salvare (BGR format)
         output_path (str): Path dove salvare l'immagine
         original_path (str): Path dell'immagine originale (per i metadati)
+        use_compression (bool): Se True, usa compressione LZW per TIFF (default: True)
+        
+    Returns:
+        dict: Metadata information including original and saved metadata
     """
+    metadata_info = {
+        "original_metadata": {},
+        "saved_successfully": False,
+        "metadata_preserved": False,
+        "format": None,
+        "compression": None,
+        "compression_requested": use_compression,
+        "error": None
+    }
+    
     try:
-        # Converti da BGR (OpenCV) a RGB (PIL)
+        # Convert BGR to RGB for PIL
         if len(image_array.shape) == 3:
             image_rgb = cv2.cvtColor(image_array, cv2.COLOR_BGR2RGB)
         else:
             image_rgb = image_array
             
-        # Crea immagine PIL
         pil_image = Image.fromarray(image_rgb)
-        
-        # Determina il formato basandosi sull'estensione
         output_ext = os.path.splitext(output_path)[1].lower()
+        metadata_info["format"] = output_ext.upper().replace('.', '')
         
-        # Carica metadati dall'originale
-        try:
-            with Image.open(original_path) as original:
-                exif_bytes = original.info.get('exif')
-                
-                if output_ext in ['.tiff', '.tif']:
-                    # TIFF: Lossless compression
-                    if exif_bytes:
-                        pil_image.save(output_path, format='TIFF', compression='lzw', exif=exif_bytes)
-                    else:
-                        pil_image.save(output_path, format='TIFF', compression='lzw')
-                        
-                elif output_ext in ['.png']:
-                    # PNG: Lossless
-                    pnginfo = original.info.copy()
-                    # PNG non supporta EXIF direttamente, usa text metadata
-                    pil_image.save(output_path, format='PNG', pnginfo=pnginfo)
-                    
-                elif output_ext in ['.jpg', '.jpeg']:
-                    # JPEG: Usa qualità 100 (minima compressione)
-                    if exif_bytes:
-                        pil_image.save(output_path, format='JPEG', quality=100, exif=exif_bytes, optimize=False, subsampling=0)
-                    else:
-                        pil_image.save(output_path, format='JPEG', quality=100, optimize=False, subsampling=0)
-                else:
-                    # Default: formato auto-rilevato
-                    if exif_bytes:
-                        pil_image.save(output_path, exif=exif_bytes)
-                    else:
-                        pil_image.save(output_path)
-                return
-                        
-        except Exception as e:
-            print(f"Warning: Could not preserve EXIF data: {e}")
+        # Load metadata from original
+        with Image.open(original_path) as original:
+            # Extract readable metadata
+            readable_metadata = {}
+            for key, value in original.info.items():
+                try:
+                    readable_metadata[str(key)] = str(value)
+                except:
+                    readable_metadata[str(key)] = "non-serializable"
             
-        # Fallback: salva senza metadati ma lossless
-        if output_ext in ['.tiff', '.tif']:
-            pil_image.save(output_path, format='TIFF', compression='lzw')
-        elif output_ext in ['.png']:
-            pil_image.save(output_path, format='PNG')
-        elif output_ext in ['.jpg', '.jpeg']:
-            pil_image.save(output_path, format='JPEG', quality=100, optimize=False, subsampling=0)
-        else:
-            pil_image.save(output_path)
+            # Add EXIF if available
+            if hasattr(original, '_getexif') and original._getexif():
+                exif_dict = original._getexif()
+                for tag_id, value in exif_dict.items():
+                    try:
+                        readable_metadata[f"EXIF_{tag_id}"] = str(value)
+                    except:
+                        readable_metadata[f"EXIF_{tag_id}"] = "non-serializable"
+            
+            metadata_info["original_metadata"] = readable_metadata
+            
+            if output_ext in ['.tiff', '.tif']:
+                # TIFF handling
+                compression_type = 'tiff_lzw' if use_compression else 'raw'
+                save_kwargs = {'format': 'TIFF', 'compression': compression_type}
+                
+                # Add metadata (excluding ICC profile if using compression to avoid conflicts)
+                if 'dpi' in original.info:
+                    save_kwargs['dpi'] = original.info['dpi']
+                if 'exif' in original.info:
+                    save_kwargs['exif'] = original.info['exif']
+                if not use_compression and 'icc_profile' in original.info:
+                    save_kwargs['icc_profile'] = original.info['icc_profile']
+                
+                pil_image.save(output_path, **save_kwargs)
+                metadata_info["compression"] = 'lzw' if use_compression else 'raw'
+                metadata_info["metadata_preserved"] = True
+                if use_compression:
+                    metadata_info["notes"] = "LZW compression applied, ICC profile excluded to avoid conflicts"
+                    
+            elif output_ext in ['.png']:
+                # PNG handling
+                from PIL import PngImagePlugin
+                pnginfo = PngImagePlugin.PngInfo()
+                for key, value in original.info.items():
+                    if isinstance(key, str) and isinstance(value, str):
+                        pnginfo.add_text(key, value)
+                
+                pil_image.save(output_path, format='PNG', pnginfo=pnginfo)
+                metadata_info["compression"] = "lossless"
+                metadata_info["metadata_preserved"] = bool(pnginfo)
+                
+            elif output_ext in ['.jpg', '.jpeg']:
+                # JPEG handling
+                save_kwargs = {'format': 'JPEG', 'quality': 100, 'optimize': False, 'subsampling': 0}
+                if 'exif' in original.info:
+                    save_kwargs['exif'] = original.info['exif']
+                if 'dpi' in original.info:
+                    save_kwargs['dpi'] = original.info['dpi']
+                
+                pil_image.save(output_path, **save_kwargs)
+                metadata_info["compression"] = "quality_100"
+                metadata_info["metadata_preserved"] = 'exif' in original.info
+                
+            else:
+                # Default handling
+                save_kwargs = {}
+                if 'exif' in original.info:
+                    save_kwargs['exif'] = original.info['exif']
+                pil_image.save(output_path, **save_kwargs)
+                metadata_info["metadata_preserved"] = 'exif' in original.info
+            
+            metadata_info["saved_successfully"] = True
+            
+    except Exception as e:
+        metadata_info["error"] = str(e)
+        print(f"Error in save_image_with_metadata: {e}")
+        # Fallback to OpenCV
+        try:
+            if output_path.lower().endswith(('.jpg', '.jpeg')):
+                cv2.imwrite(output_path, image_array, [cv2.IMWRITE_JPEG_QUALITY, 100])
+                metadata_info["compression"] = "opencv_quality_100"
+            elif output_path.lower().endswith('.png'):
+                cv2.imwrite(output_path, image_array, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+                metadata_info["compression"] = "opencv_lossless"
+            else:
+                cv2.imwrite(output_path, image_array)
+                metadata_info["compression"] = "opencv_raw"
+            metadata_info["saved_successfully"] = True
+        except Exception as e2:
+            metadata_info["error"] = f"PIL and OpenCV both failed: {e}, {e2}"
+    
+    return metadata_info
+
+def compare_metadata(original_path, output_path):
+    """Compare metadata between original and output images."""
+    comparison = {
+        "metadata_preserved": False,
+        "original_metadata": {},
+        "output_metadata": {},
+        "missing_fields": [],
+        "added_fields": [],
+        "changed_fields": []
+    }
+    
+    try:
+        # Read metadata from both files
+        with Image.open(original_path) as original_img:
+            original_metadata = original_img.info.copy()
+            original_metadata['mode'] = original_img.mode
+            original_metadata['size'] = str(original_img.size)
+        
+        with Image.open(output_path) as output_img:
+            output_metadata = output_img.info.copy()
+            output_metadata['mode'] = output_img.mode
+            output_metadata['size'] = str(output_img.size)
+        
+        # Convert to strings for JSON serialization
+        original_str = {str(k): str(v) for k, v in original_metadata.items()}
+        output_str = {str(k): str(v) for k, v in output_metadata.items()}
+        
+        comparison["original_metadata"] = original_str
+        comparison["output_metadata"] = output_str
+        
+        # Find differences
+        original_keys = set(original_str.keys())
+        output_keys = set(output_str.keys())
+        
+        comparison["missing_fields"] = list(original_keys - output_keys)
+        comparison["added_fields"] = list(output_keys - original_keys)
+        
+        # Check for changed values
+        for key in original_keys.intersection(output_keys):
+            if original_str[key] != output_str[key]:
+                comparison["changed_fields"].append({
+                    "field": key,
+                    "original": original_str[key],
+                    "output": output_str[key]
+                })
+        
+        # Determine if critical metadata is preserved
+        critical_fields = ['icc_profile', 'dpi']
+        preserved = True
+        
+        for field in critical_fields:
+            if field in comparison["missing_fields"]:
+                preserved = False
+                break
+        
+        # Allow minor DPI differences
+        for change in comparison["changed_fields"]:
+            if change["field"] == "dpi":
+                try:
+                    orig_dpi = eval(change["original"])
+                    out_dpi = eval(change["output"])
+                    if isinstance(orig_dpi, tuple) and isinstance(out_dpi, tuple):
+                        if abs(orig_dpi[0] - out_dpi[0]) > 50 or abs(orig_dpi[1] - out_dpi[1]) > 50:
+                            preserved = False
+                            break
+                except:
+                    preserved = False
+                    break
+        
+        comparison["metadata_preserved"] = preserved
         
     except Exception as e:
-        print(f"Error saving with PIL, falling back to OpenCV: {e}")
-        # Fallback a OpenCV con massima qualità
-        if output_path.lower().endswith(('.jpg', '.jpeg')):
-            cv2.imwrite(output_path, image_array, [cv2.IMWRITE_JPEG_QUALITY, 100])
-        elif output_path.lower().endswith('.png'):
-            cv2.imwrite(output_path, image_array, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-        else:
-            cv2.imwrite(output_path, image_array)
+        comparison["error"] = str(e)
+    
+    return comparison
 
-
-def save_outputs(original, processed, output_path_tiff, output_path_thumb=None, copied=False, output_no_cropped=None, original_path=None):
+def save_outputs(original, processed, output_path_tiff, output_path_thumb=None, copied=False, output_no_cropped=None, original_path=None, use_compression=True):
     """
     Save the processed TIFF image, a reduced JPG thumbnail, and the quality evaluation JSON.
     Always saves both original and processed images in the thumbnail, and always saves the quality file.
@@ -134,12 +260,24 @@ def save_outputs(original, processed, output_path_tiff, output_path_thumb=None, 
         processed = np.zeros_like(original)  # If copied, processed is an empty image
     
     # Save the processed TIFF with metadata preservation
+    metadata_info = None
     if original_path:
-        save_image_with_metadata(processed, output_path_tiff, original_path)
+        metadata_info = save_image_with_metadata(processed, output_path_tiff, original_path, use_compression)
     else:
-        # Fallback: salvataggio lossless senza metadati
+        # Fallback: salvataggio con compressione opzionale
         if output_path_tiff.lower().endswith(('.tiff', '.tif')):
-            cv2.imwrite(output_path_tiff, processed)
+            if use_compression:
+                # Convert to PIL and save with LZW compression
+                if len(processed.shape) == 3:
+                    processed_rgb = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
+                else:
+                    processed_rgb = processed
+                pil_image = Image.fromarray(processed_rgb)
+                print(f"Fallback: Saving TIFF with LZW compression")
+                pil_image.save(output_path_tiff, format='TIFF', compression='lzw')
+            else:
+                print(f"Fallback: Saving TIFF without compression")
+                cv2.imwrite(output_path_tiff, processed)
         elif output_path_tiff.lower().endswith('.png'):
             cv2.imwrite(output_path_tiff, processed, [cv2.IMWRITE_PNG_COMPRESSION, 0])
         elif output_path_tiff.lower().endswith(('.jpg', '.jpeg')):
@@ -204,6 +342,18 @@ def save_outputs(original, processed, output_path_tiff, output_path_thumb=None, 
         image_to_compare = original 
 
     quality = evaluate_quality(image_to_compare, processed)
+    
+    # Add metadata information if available
+    if metadata_info:
+        quality["save_metadata_info"] = metadata_info
+        # Also add compression info to the main quality object for easier access
+        quality["compression_used"] = metadata_info.get("compression", "unknown")
+        quality["compression_requested"] = use_compression
+    
+    # Add metadata comparison if original_path is provided
+    if original_path and os.path.exists(output_path_tiff):
+        metadata_comparison = compare_metadata(original_path, output_path_tiff)
+        quality["metadata_comparison"] = metadata_comparison
 
     quality_dir = os.path.join(os.path.dirname(output_path_thumb), 'quality')
     quality_dir = os.path.abspath(quality_dir)

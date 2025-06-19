@@ -18,7 +18,7 @@ os.makedirs(OUTPUT_THUMB_DIR, exist_ok=True)
 
 
 def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=0, show_step_by_step=False,
-                 show_before_after=False):
+                 show_before_after=False, use_compression=True):
     """
     Full pipeline to process a TIFF image with metadata preservation.
 
@@ -33,6 +33,7 @@ def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=
         border_pixels (int): Number of pixels for the external border.
         show_step_by_step (bool): If True, shows intermediate steps of the processing.
         show_before_after (bool): If True, shows the original and processed images.
+        use_compression (bool): If True, uses LZW compression for TIFF files (default: True).
 
     Returns:
         None
@@ -56,12 +57,12 @@ def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=
         warped = np.copy(image)
         print("No page-like contour found, returning empty image.")
         thumbnail = save_outputs(image, warped, output_path_tiff, output_path_thumb, 
-                                copied=copied, original_path=image_path) 
+                                copied=copied, original_path=image_path, use_compression=use_compression) 
     else:
         warped, no_cropped = warp_image(image, page_contour, border_pixels, show_step_by_step, border_value=border_value)
         print("Found countour, saving cropped/rotated image.")
         thumbnail = save_outputs(image, warped, output_path_tiff, output_path_thumb, 
-                                copied=copied, output_no_cropped=no_cropped, original_path=image_path)
+                                copied=copied, output_no_cropped=no_cropped, original_path=image_path, use_compression=use_compression)
     if show_before_after:
         show_image(warped, "Cropped Image")
     

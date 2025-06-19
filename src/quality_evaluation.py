@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
+import time
 
 def image_entropy(img_gray):
     """Compute image entropy (measure of information content)."""
@@ -29,7 +30,7 @@ def estimate_skew_angle(img_gray):
         return 0.0
     return np.median(angles)
 
-def evaluate_quality(original, processed, compute_psnr_ssim=False):
+def evaluate_quality(original, processed, compute_psnr_ssim=False, compression_info=None):
     """
     Valuta la qualità dell'immagine processata rispetto all'originale.
 
@@ -44,9 +45,10 @@ def evaluate_quality(original, processed, compute_psnr_ssim=False):
         original (np.ndarray): Crop originale senza rotazione
         processed (np.ndarray): Crop ruotato
         compute_psnr_ssim (bool): Se True, calcola anche PSNR / SSIM
+        compression_info (str): Information about compression used
 
     Returns:
-        None
+        dict: Quality evaluation results
     """
 
     # --- Pre-processing ---
@@ -108,8 +110,12 @@ def evaluate_quality(original, processed, compute_psnr_ssim=False):
             "original": edges_orig,
             "processed": edges_proc
         },
-        "residual_skew_angle": skew_proc
+        "residual_skew_angle": skew_proc,
+        "processing_date": time.strftime("%Y-%m-%d %H:%M:%S")
     }
+    
+    if compression_info:
+        results["compression_settings"] = compression_info
 
     if compute_psnr_ssim:
         psnr_val = cv2.PSNR(gray_orig_cropped, gray_proc_cropped)
