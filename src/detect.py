@@ -2,13 +2,14 @@ import cv2
 import numpy as np
 from .utils import show_image
 
-def find_page_contour(thresh, show_step_by_step=False):
+def find_page_contour(thresh, show_step_by_step=False, original_image=None):
     """
     Detect the largest contour that resembles a page.
 
     Parameters:
         thresh (numpy.ndarray): A binary thresholded image where the contours will be detected.
         show_step_by_step (bool): If True, intermediate images will be displayed for debugging purposes.
+        original_image (numpy.ndarray): Original colored image for overlay visualization.
 
     Returns:
         numpy.ndarray: An approximated polygonal contour of the detected page-like shape.
@@ -37,9 +38,19 @@ def find_page_contour(thresh, show_step_by_step=False):
         approx = cv2.approxPolyDP(contour, epsilon, True)
         if len(approx) >= 4:
             if show_step_by_step:
-                temp_image = np.zeros_like(thresh)
-                cv2.drawContours(temp_image, [approx], -1, (255, 255, 255), 3)
-                show_image(temp_image, "Detected Contour")
+                if original_image is not None:
+                    # Create overlay on colored image with high contrast contour
+                    overlay = original_image.copy()
+                    # Draw thick white border first for contrast
+                    cv2.drawContours(overlay, [approx], -1, (255, 255, 255), 15)
+                    # Draw thinner colored contour on top
+                    cv2.drawContours(overlay, [approx], -1, (0, 255, 0), 8)
+                    show_image(overlay, "Detected Contour on Original Image")
+                else:
+                    # Fallback to binary visualization
+                    temp_image = np.zeros_like(thresh)
+                    cv2.drawContours(temp_image, [approx], -1, (255, 255, 255), 3)
+                    show_image(temp_image, "Detected Contour")
             return approx
 
     # If no suitable contour is found, return None
