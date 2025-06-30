@@ -7,14 +7,14 @@ from src.transform import warp_image
 # from src.crop import remove_lateral_blacks
 # from src.quality_evaluation import evaluate_quality
 
-# Input and output directories
-DATA_DIR = 'dataset/original'
-OUTPUT_DIR = 'dataset/output'
-OUTPUT_THUMB_DIR = 'dataset/output_thumb'
-
-# Ensure output directories exist
-os.makedirs(OUTPUT_DIR, exist_ok=True)
-os.makedirs(OUTPUT_THUMB_DIR, exist_ok=True)
+## Input and output directories
+#DATA_DIR = 'dataset/original'
+#OUTPUT_DIR = 'dataset/output'
+#OUTPUT_THUMB_DIR = 'dataset/output_thumb'
+#
+## Ensure output directories exist
+#os.makedirs(OUTPUT_DIR, exist_ok=True)
+#os.makedirs(OUTPUT_THUMB_DIR, exist_ok=True)
 
 
 def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=0, show_step_by_step=False,
