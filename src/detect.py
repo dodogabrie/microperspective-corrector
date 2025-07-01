@@ -145,6 +145,7 @@ def contour_side_intensity(approx_contour, gray_image, show_plot=False):
         else:
             side_assoc.append('background')
     # Pesi: centro=1, background=0.2
+    dict_weights = {'centro': 1.0, 'background': 0.2}
     weights = [1.0 if assoc=='centro' else 0.2 for assoc in side_assoc]
     mean_weighted_inclination = np.average(side_inclinations, weights=weights)
     # Ordina per intensità decrescente
@@ -200,7 +201,28 @@ def contour_side_intensity(approx_contour, gray_image, show_plot=False):
     for i, intensity in enumerate(side_intensities):
         print(f"  {side_labels[i]}: {intensity:.1f}")
     print(f"Inclinazione assoluta media pesata: {mean_weighted_inclination:.2f}°")
-    return mean_weighted_inclination, side_angles, side_inclinations, side_assoc
+    mean = np.average(side_inclinations, weights=weights)
+    variance = np.average((np.array(side_inclinations) - mean) ** 2, weights=weights)
+    std_weighted_inclination = np.sqrt(variance)
+    print(f"Deviazione standard pesata inclinazione: {std_weighted_inclination:.2f}°")
+    # trying removing outliers and average again
+    filtered_values = np.array([[incl, assoc] for incl, assoc in zip(side_inclinations, side_assoc) if np.abs(np.abs(incl)-np.abs(std_weighted_inclination)) < std_weighted_inclination]).T
+    if filtered_values.size > 0:
+        filtered_inclinations, filtered_side_assoc = filtered_values
+        print('all angles:', side_inclinations)
+        print('non-outliers angles:', filtered_inclinations)
+        if len(filtered_inclinations) > 1:
+            weights = [dict_weights[assoc] for assoc in filtered_side_assoc]
+            filtered_inclinations = np.array(filtered_inclinations, dtype=float)
+            # new mean_weighted_inclination = np.average(filtered_inclinations, weights=filtered_side_assoc)
+            mean_weighted_inclination = np.average(filtered_inclinations, weights=weights)
+            mean = np.average(filtered_inclinations, weights=weights)
+            variance = np.average((np.array(filtered_inclinations) - mean) ** 2, weights=weights)
+            std_weighted_inclination = np.sqrt(variance)
+            print(f"Nuova inclinazione assoluta media pesata: {mean_weighted_inclination:.2f}°")
+            print(f"Nuova deviazione standard pesata inclinazione: {std_weighted_inclination:.2f}°")
+
+    return mean_weighted_inclination, variance, side_angles, side_inclinations, side_assoc
 
 
 def find_page_contour(thresh, show_step_by_step=False, original_image=None):
@@ -259,7 +281,9 @@ def find_page_contour(thresh, show_step_by_step=False, original_image=None):
                     show_image(temp_image, "Detected Contour")
                 
             gray = cv2.cvtColor(original_image, cv2.COLOR_BGR2GRAY)
-            angle, _, _, _ = contour_side_intensity(approx, gray)
+            angle, d_angle, _, _, _ = contour_side_intensity(approx, gray, show_plot=show_step_by_step)
+            if (np.abs(angle) < np.abs(d_angle)): # noise
+                angle = 0
 
             # Return the rectified rectangle as the best rectangle
             return approx, angle
