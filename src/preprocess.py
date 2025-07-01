@@ -63,6 +63,50 @@ def estimate_threshold_and_border_rgb(image, gray_blurred):
 
     return threshold_val, tuple(int(round(c)) for c in border_rgb)
 
+def smooth_edges(thresh, show_step_by_step=False):
+    """
+    Esegue erosione seguita da dilatazione (opening) per eliminare piccole irregolarità.
+
+    Args:
+        thresh (np.ndarray): Immagine binaria (uint8).
+        show_step_by_step (bool): Se True, mostra i passaggi.
+
+    Returns:
+        np.ndarray: Immagine con bordi più lisci.
+    """
+    kernel = np.ones((9, 9), np.uint8)
+    eroded = cv2.erode(thresh, kernel, iterations=5)
+    dilated = cv2.dilate(eroded, kernel, iterations=5)
+
+    if show_step_by_step:
+        show_image(eroded, "Eroded")
+        show_image(dilated, "Dilated after Erosion")
+
+    return dilated
+
+def refine_mask_morphology(thresh, show_step_by_step=False):
+    """
+    Applica chiusura e apertura morfologica per rendere i bordi più regolari.
+
+    Args:
+        thresh (np.ndarray): Immagine binaria (uint8).
+        show_step_by_step (bool): Se True, mostra i passaggi.
+
+    Returns:
+        np.ndarray: Maschera binaria raffinata.
+    """
+    kernel_close = np.ones((15, 15), np.uint8)
+    kernel_open = np.ones((5, 5), np.uint8)
+
+    closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_close)
+    opened = cv2.morphologyEx(closed, cv2.MORPH_OPEN, kernel_open)
+
+    if show_step_by_step:
+        show_image(closed, "After Morphological Close")
+        show_image(opened, "After Morphological Open")
+
+    return opened
+
 
 def preprocess_image(image, show_step_by_step=False):
     """
@@ -92,7 +136,13 @@ def preprocess_image(image, show_step_by_step=False):
 
     # Calcola soglia e valore RGB del bordo
     threshold_val, border_rgb = estimate_threshold_and_border_rgb(image, blurred)
+
     _, thresh = cv2.threshold(blurred, threshold_val, 255, cv2.THRESH_BINARY)
+
+    thresh = refine_mask_morphology(thresh, False)
+
+    thresh = smooth_edges(thresh, False)
+
     if show_step_by_step:
         show_image(thresh, f"Thresholded (th={threshold_val})")
 

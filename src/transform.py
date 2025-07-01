@@ -190,7 +190,7 @@ def irregolar_border(image, box, border_value, step_by_step=False):
 
 
 def warp_image(image, page_contour, border_pixels=0, show_step_by_step=False, show_overlay=True,
-               border_value=(0, 0, 0), opencv_version=True):
+               border_value=(0, 0, 0), angle=None, opencv_version=True):
     """
     Applica una trasformazione affine per raddrizzare una pagina rilevata nell'immagine,
     ruotandola in base all'orientamento e ritagliandola. Supporta OpenCV o pyvips per la rotazione.
@@ -202,6 +202,7 @@ def warp_image(image, page_contour, border_pixels=0, show_step_by_step=False, sh
         show_step_by_step (bool): Se True, mostra immagini intermedie.
         show_overlay (bool): Se True, disegna il contorno originale sulla regione ritagliata.
         border_value (tuple[int, int, int]): Colore di riempimento nei bordi (B, G, R).
+        angle (float): Angolo di rotazione in gradi; se None, viene calcolato automaticamente.
         opencv_version (bool): Se True, usa OpenCV per la rotazione; altrimenti pyvips.
 
     Returns:
@@ -212,7 +213,8 @@ def warp_image(image, page_contour, border_pixels=0, show_step_by_step=False, sh
     # Ottiene il rettangolo minimo che racchiude il contorno
     rect = cv2.minAreaRect(page_contour)
     center_box = rect[0]       # centro del rettangolo
-    angle = rect[2]            # angolo in gradi
+    if not angle:
+        angle = rect[2]        # angolo in gradi
 
     # Corregge l’angolo se è quasi verticale
     if angle > 80:

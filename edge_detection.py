@@ -4,17 +4,6 @@ from src.utils import show_image, load_image, save_outputs
 from src.preprocess import preprocess_image
 from src.detect import find_page_contour
 from src.transform import warp_image
-# from src.crop import remove_lateral_blacks
-# from src.quality_evaluation import evaluate_quality
-
-## Input and output directories
-#DATA_DIR = 'dataset/original'
-#OUTPUT_DIR = 'dataset/output'
-#OUTPUT_THUMB_DIR = 'dataset/output_thumb'
-#
-## Ensure output directories exist
-#os.makedirs(OUTPUT_DIR, exist_ok=True)
-#os.makedirs(OUTPUT_THUMB_DIR, exist_ok=True)
 
 
 def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=0, show_step_by_step=False,
@@ -50,7 +39,7 @@ def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=
     if show_before_after:
         show_image(image, "Original Image")
     thresh, border_value = preprocess_image(image, show_step_by_step)
-    page_contour = find_page_contour(thresh, show_step_by_step)
+    page_contour, angle = find_page_contour(thresh, show_step_by_step, original_image=image)
     copied = False
     if page_contour is None:
         copied = True
@@ -59,7 +48,7 @@ def process_tiff(image_path, output_path_tiff, output_path_thumb, border_pixels=
         thumbnail = save_outputs(image, warped, output_path_tiff, output_path_thumb, 
                                 copied=copied, original_path=image_path, use_compression=use_compression) 
     else:
-        warped, no_cropped = warp_image(image, page_contour, border_pixels, show_step_by_step, border_value=border_value)
+        warped, no_cropped = warp_image(image, page_contour, border_pixels, show_step_by_step, border_value=border_value, angle=angle)
         print("Found countour, saving cropped/rotated image.")
         thumbnail = save_outputs(image, warped, output_path_tiff, output_path_thumb, 
                                 copied=copied, output_no_cropped=no_cropped, original_path=image_path, use_compression=use_compression)

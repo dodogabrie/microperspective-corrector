@@ -306,7 +306,7 @@ def save_outputs(original, processed, output_path_tiff, output_path_thumb=None, 
     # Concatenate original, separator, processed
     concatenated_image = cv2.hconcat([original, separator, processed])
 
-    resize_val = 500
+    resize_val = 800
     height, width = concatenated_image.shape[:2]
     thumbnail = cv2.resize(concatenated_image, (resize_val, int(resize_val * height / width)))
 
