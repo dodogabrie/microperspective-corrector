@@ -14,6 +14,7 @@ sys.path.insert(0, src_dir)      # Per i moduli src.* usati in edge_detection
 
 from edge_detection import process_tiff
 from src.spinner import Spinner
+from src.utils import is_image_valid
 from report import generate_html_report
 
 def get_file_size_gb(file_path):
@@ -135,45 +136,48 @@ def main(input_dir, output_dir, border_pixels=1000, verbose=True,
         # Calcola il percorso relativo rispetto alla input_dir
         rel_path = os.path.relpath(input_path, input_dir)
         output_path = os.path.join(output_dir, rel_path)
-        output_folder = os.path.dirname(output_path)
-        os.makedirs(output_folder, exist_ok=True)
-
-        # Processa il file
-        thumbnail = process_tiff(
-            input_path,
-            output_path,
-            output_path_thumb=output_path_thumb,
-            border_pixels=border_pixels,
-            show_step_by_step=show_step_by_step,
-            show_before_after=False,
-            use_compression=use_compression
-        )
-
-        # Check if metadata was preserved (read from quality JSON if available)
-        quality_dir = os.path.join(output_path_thumb, 'quality')
-        if os.path.exists(quality_dir):
-            quality_files = [f for f in os.listdir(quality_dir) if f.endswith('.json')]
-            if quality_files:
-                latest_quality = sorted(quality_files)[-1]
-                quality_path = os.path.join(quality_dir, latest_quality)
-                try:
-                    with open(quality_path, 'r') as f:
-                        quality_data = json.load(f)
-                        if 'metadata_comparison' in quality_data:
-                            if quality_data['metadata_comparison'].get('metadata_preserved', False):
-                                info_data["successful_metadata_preservation"] += 1
-                            else:
-                                info_data["failed_metadata_preservation"] += 1
-                except:
-                    pass
-
-        # Aggiorna lo spinner
-        if verbose:
-            spinner.update_progress(i, rel_path)
-            
-        # Update progress in info.json
-        info_data["processed"] = i + 1
-        write_info_json(output_dir, info_data)
+        already_exists = is_image_valid(output_path)
+        print(f"Processing {i + 1}/{total_files}: {rel_path} (already exists: {already_exists})")
+        if not already_exists:
+            output_folder = os.path.dirname(output_path)
+            os.makedirs(output_folder, exist_ok=True)
+    
+            # Processa il file
+            thumbnail = process_tiff(
+                input_path,
+                output_path,
+                output_path_thumb=output_path_thumb,
+                border_pixels=border_pixels,
+                show_step_by_step=show_step_by_step,
+                show_before_after=False,
+                use_compression=use_compression
+            )
+    
+            # Check if metadata was preserved (read from quality JSON if available)
+            quality_dir = os.path.join(output_path_thumb, 'quality')
+            if os.path.exists(quality_dir):
+                quality_files = [f for f in os.listdir(quality_dir) if f.endswith('.json')]
+                if quality_files:
+                    latest_quality = sorted(quality_files)[-1]
+                    quality_path = os.path.join(quality_dir, latest_quality)
+                    try:
+                        with open(quality_path, 'r') as f:
+                            quality_data = json.load(f)
+                            if 'metadata_comparison' in quality_data:
+                                if quality_data['metadata_comparison'].get('metadata_preserved', False):
+                                    info_data["successful_metadata_preservation"] += 1
+                                else:
+                                    info_data["failed_metadata_preservation"] += 1
+                    except:
+                        pass
+    
+            # Aggiorna lo spinner
+            if verbose:
+                spinner.update_progress(i, rel_path)
+                
+            # Update progress in info.json
+            info_data["processed"] = i + 1
+            write_info_json(output_dir, info_data)
 
     # Ferma lo spinner
     if verbose:

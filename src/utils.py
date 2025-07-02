@@ -378,3 +378,23 @@ def save_outputs(original, processed, output_path_tiff, output_path_thumb=None, 
         json.dump(quality_py, f, indent=2, ensure_ascii=False)
 
     return thumbnail
+
+def is_image_valid(image_path):
+    """
+    Controlla se un file immagine esiste e non è corrotto.
+    Supporta TIFF, PNG, JPEG, ecc.
+
+    Args:
+        image_path (str): Percorso dell'immagine da controllare.
+
+    Returns:
+        bool: True se l'immagine esiste e non è corrotta, False altrimenti.
+    """
+    if not os.path.exists(image_path):
+        return False
+    try:
+        with Image.open(image_path) as img:
+            img.verify()  # Verifica integrità senza caricare tutto in memoria
+        return True
+    except Exception:
+        return False
