@@ -1,5 +1,7 @@
 import os
+
 # import shutil
+
 
 def generate_html_report(report_file):
     """
@@ -12,7 +14,7 @@ def generate_html_report(report_file):
         None
     """
 
-    output_dir = 'tmp'
+    output_dir = "tmp"
 
     # Start the HTML content
     html_content = """
@@ -39,12 +41,12 @@ def generate_html_report(report_file):
 
     # Iterate over the thumbnails in the output directory
     for filename in files:
-        if filename.lower().endswith('.jpg'):
+        if filename.lower().endswith(".jpg"):
             file_path = os.path.join(output_dir, filename)
             html_content += f"""
             <div class="thumbnail">
                 <img src="{file_path}" alt="{filename}">
-                <p>{filename.replace('.jpg', '')}</p>
+                <p>{filename.replace(".jpg", "")}</p>
             </div>
             """
 
@@ -56,7 +58,7 @@ def generate_html_report(report_file):
     """
 
     # Write the HTML content to the report file
-    with open(report_file, 'w') as f:
+    with open(report_file, "w") as f:
         f.write(html_content)
 
     print(f"HTML report generated: {report_file}")

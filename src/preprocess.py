@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+
 from .utils import show_image
 
 
@@ -31,8 +32,8 @@ def estimate_threshold_and_border_rgb(image, gray_blurred):
     """
     h, w = gray_blurred.shape
     min_dim = min(h, w)
-    border = int(min_dim * 0.05)       # 5% per il bordo
-    center = int(min_dim * 0.1) // 2   # 10% per il centro
+    border = int(min_dim * 0.05)  # 5% per il bordo
+    center = int(min_dim * 0.1) // 2  # 10% per il centro
 
     # Estrai bordi e concatena
     top = image[:border]
@@ -41,12 +42,15 @@ def estimate_threshold_and_border_rgb(image, gray_blurred):
     right = image[:, -border:]
 
     # Calcola media RGB dei bordi
-    border_pixels = np.concatenate([
-        top.reshape(-1, 3),
-        bottom.reshape(-1, 3),
-        left.reshape(-1, 3),
-        right.reshape(-1, 3)
-    ], axis=0).astype(np.float32)
+    border_pixels = np.concatenate(
+        [
+            top.reshape(-1, 3),
+            bottom.reshape(-1, 3),
+            left.reshape(-1, 3),
+            right.reshape(-1, 3),
+        ],
+        axis=0,
+    ).astype(np.float32)
     border_rgb = tuple(border_pixels.mean(axis=0))  # B, G, R
 
     # Converti media RGB in grigio
@@ -54,14 +58,17 @@ def estimate_threshold_and_border_rgb(image, gray_blurred):
 
     # Calcola media nel centro dell'immagine grigia
     cx, cy = w // 2, h // 2
-    center_patch = gray_blurred[cy - center:cy + center, cx - center:cx + center]
+    center_patch = gray_blurred[cy - center : cy + center, cx - center : cx + center]
     center_mean = center_patch.mean(dtype=np.float32)
 
     # Interpolazione pesata
     alpha = 0.6
-    threshold_val = int(np.clip(border_gray + (center_mean - border_gray) * alpha, 0, 255))
+    threshold_val = int(
+        np.clip(border_gray + (center_mean - border_gray) * alpha, 0, 255)
+    )
 
     return threshold_val, tuple(int(round(c)) for c in border_rgb)
+
 
 def smooth_edges(thresh, show_step_by_step=False):
     """
@@ -83,6 +90,7 @@ def smooth_edges(thresh, show_step_by_step=False):
         show_image(dilated, "Dilated after Erosion")
 
     return dilated
+
 
 def refine_mask_morphology(thresh, show_step_by_step=False):
     """

@@ -1,7 +1,9 @@
+import time
+
 import cv2
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
-import time
+
 
 def image_entropy(img_gray):
     """Compute image entropy (measure of information content)."""
@@ -10,11 +12,13 @@ def image_entropy(img_gray):
     entropy = -np.sum([p * np.log2(p) for p in hist if p > 0])
     return entropy
 
+
 def edge_density(img_gray):
     """Compute edge density (fraction of edge pixels)."""
     edges = cv2.Canny(img_gray, 100, 200)
     density = np.sum(edges > 0) / edges.size
     return density
+
 
 def estimate_skew_angle(img_gray):
     """Estimate residual skew angle using Hough line detection."""
@@ -30,7 +34,10 @@ def estimate_skew_angle(img_gray):
         return 0.0
     return np.median(angles)
 
-def evaluate_quality(original, processed, compute_psnr_ssim=False, compression_info=None):
+
+def evaluate_quality(
+    original, processed, compute_psnr_ssim=False, compression_info=None
+):
     """
     Valuta la qualità dell'immagine processata rispetto all'originale.
 
@@ -98,22 +105,13 @@ def evaluate_quality(original, processed, compute_psnr_ssim=False, compression_i
     print("=========================\n")
 
     results = {
-        "sharpness": {
-            "original": sharp_orig,
-            "processed": sharp_proc
-        },
-        "entropy": {
-            "original": entropy_orig,
-            "processed": entropy_proc
-        },
-        "edge_density": {
-            "original": edges_orig,
-            "processed": edges_proc
-        },
+        "sharpness": {"original": sharp_orig, "processed": sharp_proc},
+        "entropy": {"original": entropy_orig, "processed": entropy_proc},
+        "edge_density": {"original": edges_orig, "processed": edges_proc},
         "residual_skew_angle": skew_proc,
-        "processing_date": time.strftime("%Y-%m-%d %H:%M:%S")
+        "processing_date": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
-    
+
     if compression_info:
         results["compression_settings"] = compression_info
 
